@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.3.1");
+define("VERSION", "0.3.2");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
@@ -188,6 +188,7 @@ $FileExts = array(
 
 $IgnorePaths = array(
   ".git/",
+  "_build/",
   "_build-",
   "_tests_coverage_output/",
   "vendor/",
@@ -223,23 +224,57 @@ function print_usage()
   exit(1);
 }
 
+function parse_command_args_arg($opt_name, &$local_args, $type)
+{
+  switch ($type) {
+  case 'string':
+    $value = array_shift($local_args);
+    if ($value == "")
+      bail("Error: Invalid command line switch \"$opt_name\", expecting one value");
+    $retval = array($value);
+    break;
+
+  case 'string-pair':
+    $key = array_shift($local_args);
+    if (($p = strpos($key, "=")) !== false) {
+      $value = substr($key, $p + 1);
+      $key = substr($key, 0, $p);
+    }
+    else {
+      $value = array_shift($local_args);
+    }
+    if (($key == "") || ($value == ""))
+      bail("Error: Invalid command line switch \"$opt_name\", expecting key/value pair");
+    $retval = array($key, $value);
+    break;
+  }
+
+  return $retval;
+}
+
 function parse_command_args(&$local_args)
 {
-  global $StyleSettings, $FileExts, $WITH_DEBUG;
+  global $StyleSettings, $FileExts, $IgnorePaths, $WITH_DEBUG;
 
   while ($local_args && (substr($local_args[0], 0, 1) == "-")) {
     $opt_name = substr(array_shift($local_args), 1);
+    if (substr($opt_name, 0, 1) == "-")
+      $opt_name = substr($opt_name, 1);
+
     switch ($opt_name) {
     case "d":
       $WITH_DEBUG = true;
       break;
 
+    case "ignore-path":
+      list($_path) =
+          parse_command_args_arg($opt_name, $local_args, 'string');
+      $IgnorePaths[] = $_path;
+      break;
+
     case "style":
-      $_style = array_shift($local_args);
-      if (strpos($_style, "=") !== false)
-        list($_style, $_value) = explode("=", $_style);
-      else
-        $_value = array_shift($local_args);
+      list($_style, $_value) =
+          parse_command_args_arg($opt_name, $local_args, 'string-pair');
       $_context = &$StyleSettings;
       foreach (explode(".", $_style) as $_key) {
         if (!isset($_context[$_key]))
@@ -255,7 +290,6 @@ function parse_command_args(&$local_args)
           bail("Error: Invalid value for style \"$_style\"");
         $_context = (int) $_value;
         break;
-
       default:
         bail("Error: Invalid style path \"$_style\"");
       }
@@ -263,10 +297,8 @@ function parse_command_args(&$local_args)
       break;
 
     case "ext":
-      $_ext = array_shift($local_args);
-      $_style = array_shift($local_args);
-      if (($_ext == "") || ($_style == ""))
-        bail("Error: Missing values for '-ext'");
+      list($_ext, $_style) =
+          parse_command_args_arg($opt_name, $local_args, 'string-pair');
       if (!isset($StyleSettings[$_style]))
         bail("Error: Invalid style \"$_style\"");
       $FileExts[".$_ext"] = $_style;
