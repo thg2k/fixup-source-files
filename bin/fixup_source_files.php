@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.3.2");
+define("VERSION", "0.3.3");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
@@ -42,8 +42,12 @@ function fixup_file($path, array $settings, $check_only = true)
     case 'lf':
       $data = str_replace(array("\r\n", "\r"), array("\n", "\n"), $data);
       break;
+    case 'crlf':
+      $data = str_replace(array("\r\n", "\r"), array("\n", "\n"), $data);
+      $data = str_replace("\n", "\r\n", $data);
+      break;
     default:
-      throw new \Exception("Invalid 'eol' settings");
+      throw new \Exception("Invalid 'eol' format setting");
     }
   }
 
@@ -54,12 +58,12 @@ function fixup_file($path, array $settings, $check_only = true)
       $data = preg_replace('/[ \t]+(\n|$)/', "\n", $data);
       break;
     default:
-      throw new \Exception("Invalid 'ws' settings");
+      throw new \Exception("Invalid 'ws' format setting");
     }
   }
 
   /* manage encodings */
-  if (isset($settings['charset'])) {
+  if (isset($settings['charset']) && ($settings['charset'] != "")) {
     switch ($settings['charset']) {
     case 'ascii':
       $data = preg_replace_callback('/[\x80-\xff]/', function($m) {
@@ -69,13 +73,12 @@ function fixup_file($path, array $settings, $check_only = true)
     case 'utf8':
       mb_convert_variables('UTF-8', 'UTF-8', $data);
       break;
-
     default:
-      throw new \Exception("Invalid 'charset' settings");
+      throw new \Exception("Invalid 'charset' format setting");
     }
   }
 
-  /* hande tabs behavior */
+  /* handle tabs behavior */
   if (isset($settings['tabs'])) {
     $tabs = $settings['tabs'];
     if ($tabs[0] == 'convert') {
@@ -100,7 +103,7 @@ function fixup_file($path, array $settings, $check_only = true)
       }
     }
   }
-  
+
   /* finally, do the silly stuff. apply decorations */
   $settings['decors'] = (array) (isset($settings['decors']) ?
                                        $settings['decors'] : null);
@@ -155,10 +158,12 @@ $StyleSettings = array(
     ),
     'source-lua' => array(
         'eol' => 'lf',
-        'ws' => 'rtrim'),
+        'ws' => 'rtrim',
+    ),
     'source' => array(
         'eol' => 'lf',
         'ws' => 'rtrim',
+        'charset' => '',
     ),
     'text' => array(
         'eol' => 'lf',
@@ -254,7 +259,7 @@ function parse_command_args_arg($opt_name, &$local_args, $type)
 
 function parse_command_args(&$local_args)
 {
-  global $StyleSettings, $FileExts, $IgnorePaths, $WITH_DEBUG;
+  global $StyleSettings, $FileExts, $IgnorePaths, $IgnoreFiles, $WITH_DEBUG;
 
   while ($local_args && (substr($local_args[0], 0, 1) == "-")) {
     $opt_name = substr(array_shift($local_args), 1);
@@ -270,6 +275,12 @@ function parse_command_args(&$local_args)
       list($_path) =
           parse_command_args_arg($opt_name, $local_args, 'string');
       $IgnorePaths[] = $_path;
+      break;
+
+    case "ignore-file":
+      list($_file) =
+          parse_command_args_arg($opt_name, $local_args, 'string');
+      $IgnoreFiles[] = $_file;
       break;
 
     case "style":
@@ -310,6 +321,24 @@ function parse_command_args(&$local_args)
   }
 }
 
+function parse_conf_file()
+{
+  $entries = @file(".fixup-source-files.conf");
+  if (!$entries)
+    return;
+  foreach ($entries as $idx => $entry) {
+    $line = $idx + 1;
+    $toks = preg_split('/\s+/', $entry);
+    array_pop($toks);
+    $toks[0] = "-" . $toks[0];
+    parse_command_args($toks);
+    if (count($toks))
+      bail("Error: Invalid configuration file at line $line");
+  }
+}
+
+parse_conf_file();
+
 parse_command_args($local_args);
 
 $action = array_shift($local_args);
@@ -325,8 +354,11 @@ default:
   exit(1);
 }
 
+$basepath = rtrim(array_shift($local_args), "/");
+if ($basepath == "")
+  $basepath = ".";
 
-$dd = new \RecursiveDirectoryIterator(".");
+$dd = new \RecursiveDirectoryIterator($basepath);
 $it = new \RecursiveIteratorIterator($dd, \RecursiveIteratorIterator::SELF_FIRST);
 
 $prog_retval = 0;
@@ -341,7 +373,7 @@ foreach ($it as $ff) {
 
   $_ignore = "";
   foreach ($IgnorePaths as $ignore) {
-    if (is_prefix($p, "./$ignore")) {
+    if (is_prefix($p, "$basepath/$ignore")) {
       $_ignore = "paths";
       break;
     }
@@ -360,7 +392,7 @@ foreach ($it as $ff) {
   /* determine the style to use */
   $style = (isset($FileExts[".$ext"]) ? $FileExts[".$ext"] : null);
   if (!$style) {
-    dbgf("ignoring (style)", $p);
+    dbgf("ignoring (no style)", $p);
     continue;
   }
 
