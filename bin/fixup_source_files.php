@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.3.3");
+define("VERSION", "0.4.0");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
@@ -17,6 +17,13 @@ function bail($message)
 {
   fprintf(STDERR, "%s\n\n", $message);
   exit(1);
+}
+
+function dbg($message)
+{
+  global $WITH_DEBUG;
+  if ($WITH_DEBUG)
+    printf("[d] %s\n", $message);
 }
 
 function dbgf($message, $file)
@@ -82,7 +89,21 @@ function fixup_file($path, array $settings, $check_only = true)
   if (isset($settings['tabs'])) {
     $tabs = $settings['tabs'];
     if ($tabs[0] == 'convert') {
-      $data = str_replace("\t", str_repeat(" ", $tabs['width']), $data);
+      $_data_lines = explode("\n", $data);
+      $_tab_width = $tabs['width'];
+      for ($ll = 0; $ll < count($_data_lines); $ll++) {
+        do {
+          $_data_line_fix = preg_replace_callback('{^([^\t]*)\t}',
+            function($m) use ($_tab_width) {
+              return $m[1] . str_repeat(" ", $_tab_width - (strlen($m[1]) % $_tab_width));
+            }, $_data_lines[$ll]);
+          if ($_data_lines[$ll] == $_data_line_fix)
+            break;
+          $_data_lines[$ll] = $_data_line_fix;
+        } while (true);
+      }
+      $data = implode("\n", $_data_lines);
+      unset($_data_lines);
     }
     elseif ($tabs[0] == 'check') {
       /* i cannot have tabs after anything that's not a tab */
@@ -144,6 +165,11 @@ function fixup_file($path, array $settings, $check_only = true)
  * ------------------------------------------------------------------------ */
 
 $StyleSettings = array(
+    'source' => array(
+        'eol' => 'lf',
+        'ws' => 'rtrim',
+        'charset' => '',
+    ),
     'source-c' => array(
         'eol' => 'lf',
         'ws' => 'rtrim',
@@ -160,11 +186,6 @@ $StyleSettings = array(
         'eol' => 'lf',
         'ws' => 'rtrim',
     ),
-    'source' => array(
-        'eol' => 'lf',
-        'ws' => 'rtrim',
-        'charset' => '',
-    ),
     'text' => array(
         'eol' => 'lf',
         'ws' => 'rtrim',
@@ -177,6 +198,8 @@ $StyleSettings = array(
 $FileExts = array(
     '.c'        => 'source-c',    // c (source)
     '.h'        => 'source-c',    // c (headers)
+    '.cpp'      => 'source-c',    // c++ (source)
+    '.hpp'      => 'source-c',    // c++ (headers)
     '.php'      => 'source-php',  // php
     '.lua'      => 'source-lua',  // lua
     '.tpl'      => 'source',      // html (templates)
@@ -192,10 +215,12 @@ $FileExts = array(
 );
 
 $IgnorePaths = array(
+  ".svn/",
   ".git/",
   "_build/",
   "_build-",
   "_tests_coverage_output/",
+  "node-modules/",
   "vendor/",
   "vendor-deploy/",
   "vendor-debug/",
@@ -213,11 +238,16 @@ $IgnoreFiles = array(
 $local_args = $argv;
 $progname = array_shift($local_args);
 
+function print_version()
+{
+  fprintf(STDERR, "ThGnet source code fixer v%s\n", VERSION);
+}
+
 function print_usage()
 {
   global $StyleSettings, $progname;
 
-  fprintf(STDERR, "ThGnet source code fixer v%s\n", VERSION);
+  print_version();
   fprintf(STDERR, "\n");
   fprintf(STDERR, "Usage: %s [-d] [-style <style> <value>] [-ext <ext> <style>] <check|apply>\n",
       $progname);
@@ -263,10 +293,16 @@ function parse_command_args(&$local_args)
 
   while ($local_args && (substr($local_args[0], 0, 1) == "-")) {
     $opt_name = substr(array_shift($local_args), 1);
+
+    /* accept both "-<option>" and "--<option>" */
     if (substr($opt_name, 0, 1) == "-")
       $opt_name = substr($opt_name, 1);
 
     switch ($opt_name) {
+    case "v":
+      print_version();
+      exit(0);
+
     case "d":
       $WITH_DEBUG = true;
       break;
@@ -283,9 +319,17 @@ function parse_command_args(&$local_args)
       $IgnoreFiles[] = $_file;
       break;
 
+    case "minimal":
+      foreach (array_keys($FileExts) as $_ext) {
+        if (($_pos = strpos($FileExts[$_ext], "-")) !== false)
+          $FileExts[$_ext] = substr($FileExts[$_ext], 0, $_pos);
+      }
+      break;
+
     case "style":
       list($_style, $_value) =
           parse_command_args_arg($opt_name, $local_args, 'string-pair');
+      dbg("Applying style '$_style' = '$_value'");
       $_context = &$StyleSettings;
       foreach (explode(".", $_style) as $_key) {
         if (!isset($_context[$_key]))
@@ -324,8 +368,11 @@ function parse_command_args(&$local_args)
 function parse_conf_file()
 {
   $entries = @file(".fixup-source-files.conf");
-  if (!$entries)
-    return;
+  if (!$entries) {
+    $entries = @file(".fixup_source_files.conf");
+    if (!$entries)
+      return;
+  }
   foreach ($entries as $idx => $entry) {
     $line = $idx + 1;
     $toks = preg_split('/\s+/', $entry);
@@ -354,20 +401,85 @@ default:
   exit(1);
 }
 
-$basepath = rtrim(array_shift($local_args), "/");
-if ($basepath == "")
-  $basepath = ".";
-
-$dd = new \RecursiveDirectoryIterator($basepath);
-$it = new \RecursiveIteratorIterator($dd, \RecursiveIteratorIterator::SELF_FIRST);
-
 $prog_retval = 0;
 $stats_count = 0;
 
-foreach ($it as $ff) {
+if (count($local_args) == 0)
+  $local_args = array(".");
+
+$targets = array();
+foreach ($local_args as $rpath) {
+  $basepath = ($rpath != "/" ? rtrim($rpath, "/") : $rpath);
+
+  if (!file_exists($basepath))
+    bail("Bad path name: \"$basepath\"");
+
+  $targets[] = $basepath;
+}
+
+foreach ($targets as $basepath) {
+  $splfile = new \SplFileInfo($basepath);
+
+  if ($splfile->isDir()) {
+    $dd = new \RecursiveDirectoryIterator($basepath);
+    $it = new \RecursiveIteratorIterator($dd, \RecursiveIteratorIterator::SELF_FIRST);
+    foreach ($it as $ff) {
+      process_file($ff, $basepath);
+    }
+  }
+  else {
+    process_file($splfile, "./");
+  }
+}
+
+function perform_diff($file, $fixup) {
+  $cmdline = sprintf("diff -u -L %s -L %s %s %s",
+      escapeshellarg("$file.orig"),
+      escapeshellarg("$file.fix"),
+      escapeshellarg("$file"),
+      escapeshellarg("$fixup"));
+  $pd = popen($cmdline, "r");
+  while (!feof($pd)) {
+    $buf = stream_get_line($pd, 8192, "\n");
+    $diff_char = substr($buf, 0, 1);
+    $diff_line = substr($buf, 1);
+
+    // print "[out] $buf\n";
+    $ctl_s = "";
+    if (substr($buf, 0, 3) == "---")
+      $ctl_s = "\e[31;1m";
+    elseif (substr($buf, 0, 3) == "+++")
+      $ctl_s = "\e[32;1m";
+    elseif (substr($buf, 0, 2) == "@@")
+      $ctl_s = "\e[36;1m";
+    elseif (substr($buf, 0, 1) == "-")
+      $ctl_s = "\e[31m";
+    elseif (substr($buf, 0, 1) == "+")
+      $ctl_s = "\e[32m";
+
+    /* replace space with dot */
+    // $buf = str_replace(" ", "\xb7", $buf);
+
+    /* replace tabs */
+    $diff_line = str_replace("\t", " <tab> ", $diff_line);
+    $diff_line = str_replace("\r", "^M", $diff_line);
+
+    $diff_line = preg_replace_callback('/ +$/', function($m) {
+        return str_repeat("\xb7", strlen($m[0]));
+      }, $diff_line);
+
+    print $ctl_s . $diff_char . $diff_line . "\e[m\n";
+  }
+  pclose($pd);
+}
+
+function process_file($ff, $basepath) {
+  global $IgnorePaths, $IgnoreFiles, $FileExts, $StyleSettings;
+  global $check_only, $stats_count, $prog_retval;
+
   /* disregard directories, we are looking for files */
   if ($ff->isDir())
-    continue;
+    return;
 
   $p = $ff->getPathname();
 
@@ -384,7 +496,7 @@ foreach ($it as $ff) {
   }
   if ($_ignore) {
     dbgf("ignoring ($_ignore)", $p);
-    continue;
+    return;
   }
 
   $ext = $ff->getExtension();
@@ -393,7 +505,7 @@ foreach ($it as $ff) {
   $style = (isset($FileExts[".$ext"]) ? $FileExts[".$ext"] : null);
   if (!$style) {
     dbgf("ignoring (no style)", $p);
-    continue;
+    return;
   }
 
   /* perform the processing */
@@ -405,7 +517,7 @@ foreach ($it as $ff) {
     if ($check_only) {
       /* in check-only mode we output the differences found */
       print "\n\n!!! Bad text/source file $p\n\n";
-      system("diff -u -L $p.orig -L $p.fix $p /tmp/fixup-test-file | head -n 50");
+      perform_diff($p, "/tmp/fixup-test-file");
       $prog_retval = 1;
     }
     else {
