@@ -1,0 +1,5 @@
+:ext=txt
+:input
+this line misses newline
+:output
+this line misses newline<lf>

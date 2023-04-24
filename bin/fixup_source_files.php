@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.4.0");
+define("VERSION", "0.4.1");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
