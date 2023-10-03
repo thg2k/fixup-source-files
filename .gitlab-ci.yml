@@ -15,6 +15,7 @@ tests_php_versions:
       - RUNTIME_VERSION: php80
       - RUNTIME_VERSION: php81
       - RUNTIME_VERSION: php82
+      - RUNTIME_VERSION: php83
   script:
    - ./bin/fixup_source_files.php check
    - cd tests; ./run_test_case.php cases-basic
