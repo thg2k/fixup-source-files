@@ -1,0 +1,29 @@
+# tabs mode is 'convert' (default width 8)
+:ext=c-tabs-convert
+:input
+int main() {<lf>
+<tab>int alpha<tab>= 0;<lf>
+<tab>int beta<tab>= 0;<lf>
+<tab>return 1;<lf>
+}<lf>
+:output
+int main() {<lf>
+        int alpha       = 0;<lf>
+        int beta        = 0;<lf>
+        return 1;<lf>
+}<lf>
+
+# tabs mode is 'convert' (explicit width 2)
+:ext=c-tabs-convert-2
+:input
+int main() {<lf>
+<tab>int alpha<tab>= 0;<lf>
+<tab>int beta<tab>= 0;<lf>
+<tab>return 1;<lf>
+}<lf>
+:output
+int main() {<lf>
+  int alpha = 0;<lf>
+  int beta  = 0;<lf>
+  return 1;<lf>
+}<lf>

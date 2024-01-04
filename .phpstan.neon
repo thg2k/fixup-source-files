@@ -1,0 +1,8 @@
+parameters:
+	level: 9
+	phpVersion: 70100
+	treatPhpDocTypesAsCertain: false
+	reportUnmatchedIgnoredErrors: false
+	paths:
+		- bin
+		- tests

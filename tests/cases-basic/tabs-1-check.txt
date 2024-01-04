@@ -1,0 +1,29 @@
+# tabs mode is 'check' (default width 8)
+:ext=c-tabs-check
+:input
+int main() {<lf>
+<tab>int alpha<tab>= 0;<lf>
+<tab>int beta<tab>= 0;<lf>
+<tab>return 1;<lf>
+}<lf>
+:output
+int main() {<lf>
+<tab>int alpha       = 0;<lf>
+<tab>int beta        = 0;<lf>
+<tab>return 1;<lf>
+}<lf>
+
+# tabs mode is 'check' (explicit width 2)
+:ext=c-tabs-check-2
+:input
+int main() {<lf>
+<tab>int alpha<tab>= 0;<lf>
+<tab>int beta<tab>= 0;<lf>
+<tab>return 1;<lf>
+}<lf>
+:output
+int main() {<lf>
+<tab>int alpha = 0;<lf>
+<tab>int beta  = 0;<lf>
+<tab>return 1;<lf>
+}<lf>

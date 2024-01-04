@@ -1,0 +1,12 @@
+# Test JSON extension defaults
+:ext=json
+:input
+"hello"
+:output
+"hello"
+
+:ext=json
+:input
+"hello"<crlf>
+:output
+"hello"<lf>

@@ -1,0 +1,18 @@
+# eof is 'exactly-one' (default for 'txt')
+:ext=txt
+:input
+alpha
+:output
+alpha<lf>
+
+:ext=txt
+:input
+beta<lf>
+:output
+beta<lf>
+
+:ext=txt
+:input
+gamma<lf><lf>
+:output
+gamma<lf>

@@ -1,0 +1,46 @@
+# Test for JSON formatting 'json-minimal' (unset eof)
+:ext=json-style-1
+:input
+[ { "a":{}, "b":[ 1, 2, 3 ] } ]
+:output
+[{"a":{},"b":[1,2,3]}]
+
+# Test for JSON formatting 'json-inline' (unset eof)
+:ext=json-style-2
+:input
+[ { "a":{}, "b":[ 1, 2, 3 ] } ]
+:output
+[ { "a": {}, "b": [ 1, 2, 3 ] } ]
+
+# Test for JSON formatting 'json-php-pretty-print' (default indent 4)
+:ext=json-style-3
+:input
+[ { "a":{}, "b":[ 1, 2, 3 ] } ]
+:output
+[<lf>
+    {<lf>
+        "a": {},<lf>
+        "b": [<lf>
+            1,<lf>
+            2,<lf>
+            3<lf>
+        ]<lf>
+    }<lf>
+]
+
+# Test for JSON formatting 'json-proper' (explicit indent 2 and explicit eof)
+:ext=json-style-4
+:input
+[ { "a":{}, "b":[ 1, 2, 3 ] } ]
+:output
+[<lf>
+  {<lf>
+    "a": {<lf>
+    },<lf>
+    "b": [<lf>
+      1,<lf>
+      2,<lf>
+      3<lf>
+    ]<lf>
+  }<lf>
+]<lf>

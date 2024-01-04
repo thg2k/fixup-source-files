@@ -1,0 +1,18 @@
+# eof is 'at-most-one'
+:ext=txt-eof-2
+:input
+alpha
+:output
+alpha
+
+:ext=txt-eof-2
+:input
+beta<lf>
+:output
+beta<crlf>
+
+:ext=txt-eof-2
+:input
+gamma<lf><lf>
+:output
+gamma<crlf>

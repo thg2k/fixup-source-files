@@ -8,10 +8,35 @@
             "email": "giovanni@giacobbi.net"
         }
     ],
+    "config": {
+        "autoloader-suffix": "__thgnet_fixup"
+    },
     "require": {
         "php": ">=5.3"
     },
+    "require-dev": {
+        "phpstan/phpstan": "^1.10"
+    },
     "bin": [
         "bin/fixup_source_files.php"
-    ]
+    ],
+    "scripts": {
+        "test:syntax:fixup": "./bin/fixup_source_files.php -ignore-path tests/samples-syntax/ check",
+        "test:syntax": [
+            "@test:syntax:fixup"
+        ],
+        "test:static:phpstan": "./vendor/bin/phpstan analyse -c .phpstan.neon --no-progress --no-ansi",
+        "test:static": [
+            "@test:static:phpstan"
+        ],
+        "test:system": [
+            "cd tests; ./run_test_case.php cases-basic",
+            "cd tests; ./run_test_case.php cases-garbled"
+        ],
+        "test": [
+            "@test:syntax",
+            "@test:static",
+            "@test:system"
+        ]
+    }
 }

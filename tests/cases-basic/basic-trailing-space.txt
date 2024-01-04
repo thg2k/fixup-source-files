@@ -1,5 +1,5 @@
 :ext=txt
 :input
-this line has trailing spaces<.><.><lf>
+<.>this line has trailing spaces<.><.><lf>
 :output
-this line has trailing spaces<lf>
+<.>this line has trailing spaces<lf>
