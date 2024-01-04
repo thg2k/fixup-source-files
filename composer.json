@@ -1,7 +1,9 @@
 {
     "name": "thgnet/fixup-source-files",
     "description": "Just another source files fixer",
-    "license": [ "GPL-3.0-only" ],
+    "license": [
+        "GPL-3.0-only"
+    ],
     "authors": [
         {
             "name": "Giovanni Giacobbi",

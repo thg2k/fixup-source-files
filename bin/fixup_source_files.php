@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.5.0");
+define("VERSION", "0.5.1");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
@@ -539,7 +539,7 @@ function fixup_file($file, array $settings)
       $_result = json_decode($data);
       if (json_last_error() != JSON_ERROR_NONE) {
         $garbled = true;
-        $syntax_error = "PHP ERROR";
+        $syntax_error = "Bad JSON syntax file $file\n";
       }
       else {
         /* second, use our own internal facility for double-checking and
@@ -647,68 +647,79 @@ $StyleTypes = array(
 );
 
 $StyleSettings = array(
-    'source' => array(
-        'eol' => 'lf',
-        'eof' => 'exactly-one',
-        'ws' => 'rtrim',
-    ),
-    'source-c' => array(
-        'eol' => 'lf',
-        'eof' => 'exactly-one',
-        'ws' => 'rtrim',
-        'charset' => 'ascii',
-        'tabs-mode' => 'check',
-        'tabs-width' => '8',
-        'decor-comments' => 'c-centered-dashes',
-    ),
-    'source-php' => array(
-        'eol' => 'lf',
-        'eof' => 'exactly-one',
-        'ws' => 'rtrim',
-        'tabs-mode' => 'convert',
-        'tabs-width' => '2',
-        'syntax' => 'php',
-    ),
-    'source-lua' => array(
-        'eol' => 'lf',
-        'eof' => 'exactly-one',
-        'ws' => 'rtrim',
-    ),
-    'text' => array(
-        'eol' => 'lf',
-        'eof' => 'exactly-one',
-        'ws' => 'rtrim',
-    ),
-    'text-md' => array(
-        'eol' => 'lf',
-        'eof' => 'at-least-one',
-    ),
-    'text-json' => array(
-        'eol' => 'lf',
-        'eof' => 'at-most-one',
-        'ws' => 'rtrim',
-        'syntax' => 'json',
-    ),
+  'source' => array(
+    'eol' => 'lf',
+    'eof' => 'exactly-one',
+    'ws' => 'rtrim',
+  ),
+  'source-c' => array(
+    'eol' => 'lf',
+    'eof' => 'exactly-one',
+    'ws' => 'rtrim',
+    'charset' => 'ascii',
+    'tabs-mode' => 'check',
+    'tabs-width' => '8',
+    'decor-comments' => 'c-centered-dashes',
+  ),
+  'source-php' => array(
+    'eol' => 'lf',
+    'eof' => 'exactly-one',
+    'ws' => 'rtrim',
+    'tabs-mode' => 'convert',
+    'tabs-width' => '2',
+    'syntax' => 'php',
+  ),
+  'source-lua' => array(
+    'eol' => 'lf',
+    'eof' => 'exactly-one',
+    'ws' => 'rtrim',
+  ),
+  'text' => array(
+    'eol' => 'lf',
+    'eof' => 'exactly-one',
+    'ws' => 'rtrim',
+  ),
+  'text-md' => array(
+    'eol' => 'lf',
+    'eof' => 'at-least-one',
+  ),
+  'text-json' => array(
+    'eol' => 'lf',
+    'eof' => 'at-most-one',
+    'ws' => 'rtrim',
+    'syntax' => 'json',
+  ),
+  'text-json-composer' => array(
+    'eol' => 'lf',
+    'eof' => 'exactly-one',
+    'ws' => 'rtrim',
+    'syntax' => 'json',
+    'indent-style' => 'json-proper',
+  ),
 );
 
 $FileExts = array(
-    '.c'        => 'source-c',    // c (source)
-    '.h'        => 'source-c',    // c (headers)
-    '.cpp'      => 'source-c',    // c++ (source)
-    '.hpp'      => 'source-c',    // c++ (headers)
-    '.php'      => 'source-php',  // php
-    '.lua'      => 'source-lua',  // lua
-    '.tpl'      => 'source',      // html (templates)
-    '.html'     => 'source',      // html (plain)
-    '.less'     => 'source',      // stylesheets
-    '.css'      => 'source',      // stylesheets
-    '.js'       => 'source',      // javascript
-    '.sh'       => 'source',      // shell scripts
-    '.sql'      => 'source',      // sql data
-    '.htaccess' => 'text',        // .htaccess files
-    '.txt'      => 'text',        // text (generic)
-    '.md'       => 'text-md',     // text (markdown)
-    '.json'     => 'text-json',   // text (json)
+  '.c'        => 'source-c',    // c (source)
+  '.h'        => 'source-c',    // c (headers)
+  '.cpp'      => 'source-c',    // c++ (source)
+  '.hpp'      => 'source-c',    // c++ (headers)
+  '.php'      => 'source-php',  // php
+  '.lua'      => 'source-lua',  // lua
+  '.tpl'      => 'source',      // html (templates)
+  '.html'     => 'source',      // html (plain)
+  '.less'     => 'source',      // stylesheets
+  '.css'      => 'source',      // stylesheets
+  '.js'       => 'source',      // javascript
+  '.sh'       => 'source',      // shell scripts
+  '.sql'      => 'source',      // sql data
+  '.htaccess' => 'text',        // .htaccess files
+  '.txt'      => 'text',        // text (generic)
+  '.md'       => 'text-md',     // text (markdown)
+  '.json'     => 'text-json',   // text (json)
+);
+
+$FileNames = array(
+  'composer.json' => 'text-json-composer',
 );
 
 $IgnorePaths = array(
@@ -756,10 +767,11 @@ function print_version($fd)
  */
 function print_usage($fd)
 {
-  global $StyleSettings, $FileExts, $progname;
+  global $StyleSettings, $FileExts, $FileNames, $progname;
 
   print_version($fd);
 
+  fprintf($fd, "\n");
   fprintf($fd, "Usage: %s " .
       "[-d] [-style <style> <value>] [-ext <ext> <style>] " .
       "<check|apply> [paths...]\n",
@@ -774,18 +786,21 @@ function print_usage($fd)
       $_styles[] = "$k:$v";
     }
     $_style_exts[$style] = array();
-    fprintf($fd, "  %-12s (%s)\n", $style, ($_styles ? implode(" ", $_styles) : "-"));
+    fprintf($fd, "  %-24s (%s)\n", $style, ($_styles ? implode(" ", $_styles) : "-"));
   }
 
   fprintf($fd, "\n");
   fprintf($fd, "Configured file types:\n");
   foreach ($FileExts as $ext => $style) {
-    if (!isset($_style_exts[$style]))
-      $_style_exts[$style] = array();
-    $_style_exts[$style][] = $ext;
+    assert(isset($_style_exts[$style]));
+    $_style_exts[$style][] = "*" . $ext;
+  }
+  foreach ($FileNames as $name => $style) {
+    assert(isset($_style_exts[$style]));
+    $_style_exts[$style][] = $name;
   }
   foreach ($_style_exts as $style => $exts) {
-    fprintf($fd, "    %-12s %s\n", $style . ":", implode(" ", $exts));
+    fprintf($fd, "  %-24s %s\n", $style . ":", implode(" ", $exts));
   }
   fprintf($fd, "\n");
 }
@@ -799,7 +814,9 @@ function print_usage($fd)
  */
 function parse_command_args(&$local_args, $is_config = false)
 {
-  global $StyleTypes, $StyleSettings, $FileExts, $IgnorePaths, $IgnoreFiles;
+  global $StyleTypes, $StyleSettings;
+  global $FileExts, $FileNames;
+  global $IgnorePaths, $IgnoreFiles;
   global $WITH_DEBUG, $WITH_FORCE;
 
   $ec = ($is_config ? 'CONFIG' : 'USAGE');
@@ -862,6 +879,7 @@ function parse_command_args(&$local_args, $is_config = false)
         if (($_pos = strpos($FileExts[$_ext], "-")) !== false)
           $FileExts[$_ext] = substr($FileExts[$_ext], 0, $_pos);
       }
+      $FileNames = array();
       // foreach (array_keys($StyleSettings) as $_style) {
         // foreach (array_keys($StyleSettings[$_style]) as $_style_key) {
           // if (!in_array($_style_key, array('eol', 'eof', 'ws')))
@@ -910,6 +928,15 @@ function parse_command_args(&$local_args, $is_config = false)
       if (!isset($StyleSettings[$_style]))
         $StyleSettings[$_style] = array();
       $FileExts[".$_ext"] = $_style;
+      break;
+
+    case "name":
+      list($_name, $_style) = $parse_arg_string_pair($opt_name);
+      if (!preg_match('/^([0-9a-z-]+)$/', $_style))
+        bail("Invalid style \"$_style\"", $ec);
+      if (!isset($StyleSettings[$_style]))
+        $StyleSettings[$_style] = array();
+      $FileNames[$_name] = $_style;
       break;
 
     default:
@@ -1060,7 +1087,7 @@ function perform_diff($file, $data)
  */
 function process_file($ff, $basepath)
 {
-  global $IgnorePaths, $IgnoreFiles, $FileExts, $StyleSettings;
+  global $IgnorePaths, $IgnoreFiles, $FileExts, $FileNames, $StyleSettings;
   global $check_only, $stats_count, $prog_retval, $WITH_FORCE;
 
   /* disregard directories, we are looking for files */
@@ -1088,7 +1115,13 @@ function process_file($ff, $basepath)
   $ext = $ff->getExtension();
 
   /* determine the style to use */
-  $style = (isset($FileExts[".$ext"]) ? $FileExts[".$ext"] : null);
+  $style = null;
+  foreach ($FileNames as $xname => $xstyle) {
+    if (fnmatch($xname, $ff->getFilename()))
+      $style = $xstyle;
+  }
+  if (($style === null) && isset($FileExts[".$ext"]))
+    $style = $FileExts[".$ext"];
   if (!$style) {
     dbgf("ignoring (no style)", $p);
     return;
