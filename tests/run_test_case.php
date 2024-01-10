@@ -199,6 +199,9 @@ style c-tabs-convert.tabs-mode=convert
 style c-tabs-convert-2.tabs.0=convert
 style c-tabs-convert-2.tabs.width=2
 
+ext c-tabs-indent=c-tabs-indent
+style c-tabs-indent.tabs-mode=indent
+
 ext txt-cs-ascii=txt-cs-ascii
 ext txt-cs-iso-8859-1=txt-cs-iso-8859-1
 ext txt-cs-windows-1252=txt-cs-windows-1252

@@ -15,6 +15,8 @@ tests_basic:
 
 tests_php_versions:
   stage: test
+  except:
+    - tags
   needs: [ "tests_basic" ]
   image: registry.gitlab.com/thgnet/docker-centos7wre:v2.1
   variables:

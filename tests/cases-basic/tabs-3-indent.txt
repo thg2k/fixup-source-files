@@ -1,0 +1,14 @@
+# tabs mode is 'indent' (default width 8)
+:ext=c-tabs-indent
+:input
+int main() {<lf>
+<tab> int alpha<tab>= 0;<lf>
+    <tab>int beta<tab>= 0;<lf>
+        <tab>return 1;<lf>
+}<lf>
+:output
+int main() {<lf>
+<tab> int alpha<tab>= 0;<lf>
+<tab>int beta<tab>= 0;<lf>
+<tab><tab>return 1;<lf>
+}<lf>

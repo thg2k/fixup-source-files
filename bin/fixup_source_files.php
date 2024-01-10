@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.5.1");
+define("VERSION", "0.6.0");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
@@ -386,13 +386,23 @@ function fixup_file($file, array $settings)
   }
 
   /* fixup trailing whitespace */
-  if (isset($settings['ws'])) {
-    switch ($settings['ws']) {
+  if (!isset($settings['ws']))
+    $settings['ws'] = "";
+  foreach (explode(",", $settings['ws']) as $_token_ws) {
+    if ($_token_ws == "")
+      continue;
+    switch ($_token_ws) {
     case 'rtrim':
       $data = (string) preg_replace('/[ \t]+(\n|$)/', "\n", $data);
       break;
+    case 'strip-bom':
+      $data = (string) preg_replace('/^(\xef\xbb\xbf)+/', "", $data);
+      break;
+    case 'apply-bom':
+      $data = "\xef\xbb\xbf" . preg_replace('/^(\xef\xbb\xbf)+/', "", $data);
+      break;
     default:
-      throw new \Exception("Invalid 'ws' format setting");
+      throw new \Exception("Invalid 'ws' format setting '$_token_ws'");
     }
   }
 
@@ -475,10 +485,9 @@ function fixup_file($file, array $settings)
       unset($_data_lines, $_data_line_fix);
     }
     elseif ($_tabs_mode == 'check') {
-      /* i cannot have tabs after anything that's not a tab */
-      $_repl = str_repeat(" ", $_tabs_width);
+      /* avoid tabs after anything that's not a tab */
       while (true) {
-        $_data_line_fix = (string) preg_replace_callback('{^(\t*[^\t\n]+)(\t+)}m',
+        $_data_fix = (string) preg_replace_callback('{^(\t*[^\t\n]+)(\t+)}m',
           function($m) use ($_tabs_width) {
             if (substr($m[1], 0, 2) == "//")
               return $m[0];
@@ -486,11 +495,25 @@ function fixup_file($file, array $settings)
             return $m[1] . str_repeat(" ", $_tabs_width - ($_left_side % $_tabs_width)) .
                 str_repeat(" ", $_tabs_width * (strlen($m[2]) - 1));
           }, $data);
-        if ($_data_line_fix == $data)
+        if ($_data_fix == $data)
           break;
-        $data = $_data_line_fix;
+        $data = $_data_fix;
       }
-      unset($_data_line_fix);
+      unset($_data_fix);
+    }
+    elseif ($_tabs_mode == 'indent') {
+      /* avoid tab-space-tab sequences in the early line */
+      $_repl = str_repeat(" ", $_tabs_width);
+      while (true) {
+        $_data_fix = (string) preg_replace_callback('{^(\t* +)(\t+)}m',
+            function($m) use ($_repl) {
+              return rtrim(str_replace($_repl, "\t", $m[1]), " ") . $m[2];
+            }, $data);
+        if ($_data_fix == $data)
+          break;
+        $data = $_data_fix;
+      }
+      unset($_data_fix);
     }
   }
 
@@ -635,9 +658,9 @@ function fixup_file($file, array $settings)
 $StyleTypes = array(
   'eol' => 'cr|crlf|lf',
   'eof' => 'at-least-one|at-most-one|exactly-one|none',
-  'ws' => 'rtrim',
+  'ws' => '((rtrim|strip-bom|apply-bom)(,|$))*',
   'charset' => 'ascii|iso-?8859-?1|windows-?1252|utf-?8',
-  'tabs-mode' => 'check|convert',
+  'tabs-mode' => 'check|convert|indent',
   'tabs-width' => '\d+',
   'indent-style' => 'json-(inline|minimal|php-pretty-print|proper)',
   'indent-width' => '\d+',
