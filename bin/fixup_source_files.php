@@ -4,7 +4,7 @@
  * Generic source code linter
  */
 
-define("VERSION", "0.6.0");
+define("VERSION", "0.6.1");
 
 $WITH_DEBUG = (getenv("WITH_LINTER_DEBUG") != "");
 
@@ -935,13 +935,20 @@ function parse_command_args(&$local_args, $is_config = false)
       if (!isset($StyleTypes[$regp[2]]))
         bail("Invalid style \"$_style\"", $ec);
 
-      /* check that the style value is valid */
-      if (!preg_match('/^(' . $StyleTypes[$regp[2]] . ')$/', $_value))
-        bail("Invalid value \"$_value\" for style \"$_style\"", $ec);
-
+      /* define the source type if it doesn't exist */
       if (!isset($StyleSettings[$regp[1]]))
         $StyleSettings[$regp[1]] = array();
-      $StyleSettings[$regp[1]][$regp[2]] = $_value;
+
+      if ($_value == "unset") {
+        /* this special keyword remove any previously defined value */
+        unset($StyleSettings[$regp[1]][$regp[2]]);
+      }
+      else {
+        /* check that the style value is valid and apply it */
+        if (!preg_match('/^(' . $StyleTypes[$regp[2]] . ')$/', $_value))
+          bail("Invalid value \"$_value\" for style \"$_style\"", $ec);
+        $StyleSettings[$regp[1]][$regp[2]] = $_value;
+      }
       break;
 
     case "ext":
